@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, Easing } from 'remotion';
-import { cursorAt, clickPulses } from './cursor';
+import { cursorAt, clickPulses } from './cursorMath';
 import type { RecEvent } from './types';
 
 const CURSOR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(

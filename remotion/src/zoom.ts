@@ -20,7 +20,7 @@ export type Cluster = {
 };
 
 export function buildClusters(events: RecEvent[]): Cluster[] {
-  const clicks = events.filter((e) => e.type === 'click');
+  const clicks = events.filter((e) => e.type === 'click' || e.type === 'zoom');
   const clusters: Cluster[] = [];
   const xs: number[][] = [];
   const ys: number[][] = [];
