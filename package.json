@@ -1,0 +1,25 @@
+{
+  "name": "screen-studio-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Record a browser and auto-edit it into a polished Screen Studio-style video (zoom-on-click + synthetic cursor) using Playwright, ffmpeg and Remotion.",
+  "type": "module",
+  "scripts": {
+    "record": "node scripts/record.mjs",
+    "build": "node scripts/build.mjs",
+    "studio": "remotion studio remotion/src/index.ts",
+    "render": "remotion render remotion/src/index.ts ScreenStudio"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.380",
+    "ffmpeg-static": "5.2.0",
+    "playwright": "1.50.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.380"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.18",
+    "typescript": "5.7.3"
+  }
+}
