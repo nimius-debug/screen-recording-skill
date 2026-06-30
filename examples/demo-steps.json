@@ -1,0 +1,6 @@
+[
+  { "action": "wait", "ms": 700 },
+  { "action": "click", "selector": "#card-1", "pause": 1300 },
+  { "action": "click", "selector": "#card-3", "pause": 1300 },
+  { "action": "click", "selector": "#action", "pause": 1300 }
+]

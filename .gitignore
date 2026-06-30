@@ -1,0 +1,8 @@
+node_modules/
+out/
+*.webm
+*.mp4
+remotion/public/recording.*
+remotion/public/events.json
+!examples/**/*.mp4
+.DS_Store
