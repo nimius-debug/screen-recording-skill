@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ffmpegStatic from 'ffmpeg-static';
+import { resolveFfmpeg, resolveRenderChrome } from './lib/env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -23,41 +23,49 @@ function arg(name, def) {
 
 const inDir = resolve(arg('--in', 'out'));
 const finalOut = resolve(arg('--out', join(inDir, 'final.mp4')));
-const webm = join(inDir, 'recording.webm');
 const manifestPath = join(inDir, 'events.json');
 
-if (!existsSync(webm)) throw new Error(`missing ${webm} (run scripts/record.mjs first)`);
+// Accept whatever the recorder produced (webm from Playwright, mp4/mkv from elsewhere).
+const SRC_NAMES = ['recording.webm', 'recording.mp4', 'recording.mkv'];
+const srcVideo = SRC_NAMES.map((n) => join(inDir, n)).find(existsSync);
+if (!srcVideo) throw new Error(`no recording.{webm,mp4,mkv} in ${inDir} (run scripts/record.mjs first)`);
 if (!existsSync(manifestPath)) throw new Error(`missing ${manifestPath}`);
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const fps = manifest.fps || 30;
+const ext = srcVideo.slice(srcVideo.lastIndexOf('.'));
 
 const publicDir = join(ROOT, 'remotion', 'public');
 mkdirSync(publicDir, { recursive: true });
 
-const noTranscode = process.argv.includes('--no-transcode');
+const wantTranscode = !process.argv.includes('--no-transcode') && ext !== '.mp4';
+const { bin: ffmpegBin, canH264 } = wantTranscode
+  ? await resolveFfmpeg()
+  : { bin: null, canH264: false };
+
 let videoName;
-if (noTranscode) {
-  // Feed the webm straight to Remotion (its internal ffmpeg decodes VP8 fine).
-  videoName = 'recording.webm';
-  copyFileSync(webm, join(publicDir, videoName));
-  console.log('[build] skipping transcode; using recording.webm directly');
+if (!wantTranscode || !ffmpegBin || !canH264) {
+  // No transcode needed/possible — stage the source as-is. Remotion's own ffmpeg
+  // decodes VP8 webm fine, so this is a clean fallback when no H.264 encoder exists.
+  if (wantTranscode && (!ffmpegBin || !canH264)) {
+    console.log('[build] no H.264-capable ffmpeg found; using the recording directly');
+  }
+  videoName = `recording${ext}`;
+  copyFileSync(srcVideo, join(publicDir, videoName));
 } else {
   // Transcode to constant-fps H.264 mp4 for the most reliable seeking + playback.
   videoName = 'recording.mp4';
-  const ffmpegBin = process.env.FFMPEG_PATH || ffmpegStatic;
-  console.log(`[build] transcoding webm -> mp4 with ffmpeg (${ffmpegBin})…`);
+  console.log(`[build] transcoding -> mp4 with ffmpeg (${ffmpegBin})…`);
   const ff = spawnSync(
     ffmpegBin,
-    ['-y', '-i', webm, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+    ['-y', '-i', srcVideo, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
      '-r', String(fps), '-an', join(publicDir, videoName)],
     { stdio: 'inherit' },
   );
   if (ff.status !== 0) {
-    throw new Error(
-      'ffmpeg transcode failed. Ensure ffmpeg supports libx264, set FFMPEG_PATH ' +
-      'to a full ffmpeg build, or pass --no-transcode to use the webm directly.',
-    );
+    console.warn('[build] transcode failed; falling back to the source recording');
+    videoName = `recording${ext}`;
+    copyFileSync(srcVideo, join(publicDir, videoName));
   }
 }
 
@@ -74,9 +82,11 @@ const propsPath = join(publicDir, 'events.json');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const renderArgs = ['remotion', 'render', 'remotion/src/index.ts', 'ScreenStudio',
   finalOut, `--props=${propsPath}`];
-// Use a preinstalled Chrome when Remotion can't download its own (sandboxes/CI).
-if (process.env.SS_CHROMIUM_PATH) {
-  renderArgs.push(`--browser-executable=${process.env.SS_CHROMIUM_PATH}`);
+// Use a preinstalled chrome-headless-shell when Remotion can't download its own
+// (sandboxes/CI). Locally this is undefined and Remotion uses its own.
+const renderChrome = resolveRenderChrome();
+if (renderChrome) {
+  renderArgs.push(`--browser-executable=${renderChrome}`);
 }
 // shell:true is required on Windows: spawning a .cmd directly without it fails
 // with EINVAL regardless of the arguments passed.
