@@ -6,8 +6,9 @@ description: >-
   and a cinematic frame (gradient background, rounded corners, shadow). Use when
   the user wants to "screen record", "record my browser", make a "demo video",
   a "screen studio" / "zoom on click" video, or turn a browser walkthrough into a
-  polished clip. Works on Windows/macOS/Linux. Two modes: live (user clicks in a
-  launched browser) and script (Claude drives the browser from described steps).
+  polished clip. Works on any website on Windows/macOS/Linux. Three modes: auto
+  (just a URL — auto-tours/zooms any site, no authoring), live (user clicks in a
+  launched browser), and script (Claude drives the browser from described steps).
 ---
 
 # Screen Studio skill
@@ -26,13 +27,35 @@ npm install
 npx playwright install chromium
 ```
 
-ffmpeg is bundled via `ffmpeg-static` — nothing else to install. (If that build
-can't run in your environment, install a full ffmpeg and set `FFMPEG_PATH`, or pass
-`--no-transcode` to feed the capture straight to Remotion.)
+ffmpeg is bundled via `ffmpeg-static`. The scripts **auto-detect** their browser and
+ffmpeg, so no env vars are needed in a local install or a cloud sandbox (preinstalled
+Chromium is picked up; if no H.264 ffmpeg exists it falls back to a no-transcode render).
+Overrides: `SS_CHROMIUM_PATH`, `FFMPEG_PATH`, `--no-transcode`.
+
+## Where this runs
+
+- **Local CLI / desktop, or Remote Control** (`claude --remote-control` / `/rc`): runs on
+  the user's PC — all three modes work; live needs them at the machine to click. Output is
+  `out/final.mp4` (`npm run open-out`).
+- **Claude Code on the web** (cloud): **auto or script** modes (no screen for live). After
+  building, return `out/final.mp4` with `SendUserFile`; the environment needs internet
+  access to reach the target URL. Live mode exits with guidance if attempted headless.
 
 ## How to use
 
-Ask the user for: the **URL**, the **duration** (seconds), and the **mode**.
+Ask the user for: the **URL**, the **duration** (seconds), and the **mode**. For an
+arbitrary website with no particular flow, prefer **auto**; for a precise click-through,
+use **script**; to record the user's own interaction, use **live**.
+
+### Auto mode — tour any website (no authoring)
+Give it just a URL: it scrolls through the page and auto-zooms prominent elements
+(headings/buttons/images), emitting cursor-free zoom events. Works on any site.
+
+```
+node scripts/record.mjs --mode auto --url https://any-site.com --duration 20 --out out
+node scripts/build.mjs --in out --out out/final.mp4
+```
+(`--mode script` with no `--steps` also falls back to auto-tour.)
 
 ### Live mode — the user clicks themselves
 Launches a real browser window; the user interacts for `--duration` seconds, then it
@@ -76,21 +99,21 @@ the `--out` dir.
 
 ## record.mjs flags
 
-`--mode live|script` · `--url <url>` · `--duration <seconds>` · `--steps <file.json>`
+`--mode auto|live|script` · `--url <url>` · `--duration <seconds>` · `--steps <file.json>`
 · `--out <dir>` · `--size 1280x800` · `--fps 30` · `--headed`/`--headless`
 
 ## build.mjs flags
 
-`--in <dir>` (record output) · `--out <file.mp4>` · `--no-transcode` (use the webm
-directly, skip ffmpeg) · env `FFMPEG_PATH` (full ffmpeg) · env `SS_CHROMIUM_PATH`
-(Chrome for the renderer, for sandboxes/CI).
+`--in <dir>` (record output) · `--out <file.mp4>` · `--no-transcode` (skip ffmpeg, use the
+recording directly) · env `FFMPEG_PATH` · env `SS_CHROMIUM_PATH` (override the auto-detected
+browser). Browser + ffmpeg are auto-detected, so these are rarely needed.
 
 ## Tuning the look
 
 Zoom amount/timing live in `remotion/src/zoom.ts` (`ZOOM_SCALE`, cluster gap, ease
 durations). Background gradient, padding, corner radius and shadow live in
 `remotion/src/ScreenStudio.tsx`. Cursor smoothing/size and the click ripple live in
-`remotion/src/Cursor.tsx` and `remotion/src/cursor.ts`. Preview interactively with
+`remotion/src/Cursor.tsx` and `remotion/src/cursorMath.ts`. Preview interactively with
 `npm run studio`.
 
 ## Notes

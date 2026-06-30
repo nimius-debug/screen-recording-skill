@@ -50,10 +50,41 @@ npm install
 npx playwright install chromium
 ```
 
-ffmpeg ships via `ffmpeg-static`. If it can't run in your environment, install a full
-ffmpeg and set `FFMPEG_PATH`, or pass `--no-transcode` to feed the webm to Remotion directly.
+ffmpeg ships via `ffmpeg-static`. The scripts **auto-detect** their browser and ffmpeg, so
+no env vars are normally needed: locally they use Playwright's/Remotion's own bundled
+Chromium; in a cloud sandbox they pick up a preinstalled browser, and if no H.264-capable
+ffmpeg is available they automatically feed the capture to Remotion as-is. Overrides exist if
+you want them (`SS_CHROMIUM_PATH`, `FFMPEG_PATH`, `--no-transcode`).
+
+## Where to run it
+
+| Surface | Runs on | auto / script | live (you click) | Output |
+| --- | --- | --- | --- | --- |
+| **Local CLI / desktop app** | your PC | ✅ | ✅ | `out/final.mp4` |
+| **Remote Control** (`claude --remote-control` / `/rc`) | your PC, controlled from phone | ✅ | ✅ *(at the PC)* | `out/final.mp4` |
+| **Claude Code on the web** | cloud container | ✅ headless | ❌ no screen | sent to you in-session |
+
+A cloud Claude **cannot see your local screen** — it records its own browser, so choose an
+environment with an **internet-enabled network policy**. Grab the local output with
+`npm run open-out`.
+
+**Optional — auto-install on cloud sessions.** To make a fresh Claude Code web session install
+deps automatically, add a `SessionStart` hook to `.claude/settings.json` (left out by default
+since it auto-runs a command):
+```json
+{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "node scripts/setup.mjs" } ] } ] } }
+```
 
 ## Usage
+
+### Auto mode (any site, no authoring)
+```bash
+node scripts/record.mjs --mode auto --url https://any-site.com --duration 20
+node scripts/build.mjs   # -> out/final.mp4
+```
+Give it just a URL: it scrolls the page and auto-zooms prominent elements (headings, buttons,
+images) into a cinematic demo. Works on any website. (`--mode script` with no `--steps` also
+falls back to auto-tour.)
 
 ### Live mode (you click)
 ```bash
@@ -72,22 +103,23 @@ actions; the cursor glides between targets automatically. See `examples/demo-ste
 
 ### Preview / tweak interactively
 ```bash
-npm run studio   # opens Remotion Studio on the last build's events.json
+npm run studio       # opens Remotion Studio on the last build's events.json
+npm run open-out     # print/open the newest out/*.mp4
 ```
 
 ## Key flags
 
-**record.mjs:** `--mode live|script` · `--url` · `--duration <s>` · `--steps <file>` ·
+**record.mjs:** `--mode auto|live|script` · `--url` · `--duration <s>` · `--steps <file>` ·
 `--out <dir>` · `--size 1280x800` · `--fps 30` · `--headed`/`--headless`
 
 **build.mjs:** `--in <dir>` · `--out <file.mp4>` · `--no-transcode` ·
-env `FFMPEG_PATH` · env `SS_CHROMIUM_PATH` (Chrome for the renderer, for sandboxes/CI)
+env `FFMPEG_PATH` · env `SS_CHROMIUM_PATH` (override the auto-detected browser)
 
 ## Customizing the look
 
 - **Zoom** amount/timing: `remotion/src/zoom.ts` (`ZOOM_SCALE`, cluster gap, easings)
 - **Frame** (gradient, padding, radius, shadow): `remotion/src/ScreenStudio.tsx`
-- **Cursor** smoothing/size + click ripple: `remotion/src/Cursor.tsx`, `remotion/src/cursor.ts`
+- **Cursor** smoothing/size + click ripple: `remotion/src/Cursor.tsx`, `remotion/src/cursorMath.ts`
 
 ## Notes & limitations
 
