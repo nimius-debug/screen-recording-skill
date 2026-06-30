@@ -68,15 +68,23 @@ writeFileSync(join(publicDir, 'events.json'), JSON.stringify(staged, null, 2));
 mkdirSync(dirname(finalOut), { recursive: true });
 
 console.log('[build] rendering with Remotion…');
-const propsArg = JSON.stringify(staged);
+// Pass props via the staged events.json path rather than inline JSON: on Windows,
+// spawning a .cmd with a long quote-heavy inline argument can fail with EINVAL.
+const propsPath = join(publicDir, 'events.json');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const renderArgs = ['remotion', 'render', 'remotion/src/index.ts', 'ScreenStudio',
-  finalOut, `--props=${propsArg}`];
+  finalOut, `--props=${propsPath}`];
 // Use a preinstalled Chrome when Remotion can't download its own (sandboxes/CI).
 if (process.env.SS_CHROMIUM_PATH) {
   renderArgs.push(`--browser-executable=${process.env.SS_CHROMIUM_PATH}`);
 }
-const render = spawnSync(npx, renderArgs, { stdio: 'inherit', cwd: ROOT });
+// shell:true is required on Windows: spawning a .cmd directly without it fails
+// with EINVAL regardless of the arguments passed.
+const render = spawnSync(npx, renderArgs, {
+  stdio: 'inherit',
+  cwd: ROOT,
+  shell: process.platform === 'win32',
+});
 if (render.status !== 0) throw new Error('remotion render failed');
 
 console.log(`[build] done -> ${finalOut}`);
