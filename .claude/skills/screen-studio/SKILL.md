@@ -26,9 +26,23 @@ npm install
 npx playwright install chromium
 ```
 
-ffmpeg is bundled via `ffmpeg-static` — nothing else to install. (If that build
-can't run in your environment, install a full ffmpeg and set `FFMPEG_PATH`, or pass
-`--no-transcode` to feed the capture straight to Remotion.)
+ffmpeg is bundled via `ffmpeg-static`. The scripts **auto-detect** their browser and
+ffmpeg, so no env vars are needed in either a local install or a cloud sandbox (it picks
+up a preinstalled Chromium and falls back to a no-transcode render if no H.264 ffmpeg is
+present). Overrides: `SS_CHROMIUM_PATH`, `FFMPEG_PATH`, `--no-transcode`.
+
+## Where this runs
+
+- **Local CLI / desktop, or Remote Control** (`claude --remote-control` / `/rc`): the session
+  runs on the user's PC — **both** live and script modes work; live mode needs the user to be
+  at the machine to click. Output is `out/final.mp4` (use `npm run open-out`).
+- **Claude Code on the web** (cloud): **script mode only** (no screen for live). After
+  building, return `out/final.mp4` to the user with `SendUserFile`. The cloud cannot see the
+  user's local screen — it records its own browser, so the environment needs internet access
+  to reach the target URL.
+
+If the user asks for live mode in a cloud session, record.mjs exits with guidance — switch to
+script mode (turn their described walkthrough into a steps JSON) instead.
 
 ## How to use
 

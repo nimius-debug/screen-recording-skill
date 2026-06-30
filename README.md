@@ -50,8 +50,23 @@ npm install
 npx playwright install chromium
 ```
 
-ffmpeg ships via `ffmpeg-static`. If it can't run in your environment, install a full
-ffmpeg and set `FFMPEG_PATH`, or pass `--no-transcode` to feed the webm to Remotion directly.
+ffmpeg ships via `ffmpeg-static`. The scripts **auto-detect** their browser and ffmpeg, so
+no env vars are normally needed: locally they use Playwright's/Remotion's own bundled
+Chromium; in a cloud sandbox they pick up a preinstalled browser, and if no H.264-capable
+ffmpeg is available they automatically feed the capture to Remotion as-is. Overrides exist if
+you want them (`SS_CHROMIUM_PATH`, `FFMPEG_PATH`, `--no-transcode`).
+
+## Where to run it
+
+| Surface | Runs on | Live mode (you click) | Script mode (Claude drives) | Output |
+| --- | --- | --- | --- | --- |
+| **Local CLI / desktop app** | your PC | ✅ | ✅ | `out/final.mp4` |
+| **Remote Control** (`claude --remote-control "Rec"` or `/rc`) | your PC, controlled from phone | ✅ *(while you're at the PC)* | ✅ kick off from phone | `out/final.mp4` on the PC |
+| **Claude Code on the web** | cloud container | ❌ no screen | ✅ headless | sent to you in-session |
+
+Notes: a cloud Claude **cannot see your local screen** — it records its own browser. For
+the web path, choose an environment with an **internet-enabled network policy** so the target
+URLs are reachable. Retrieve the local output any time with `npm run open-out`.
 
 ## Usage
 
@@ -81,7 +96,18 @@ npm run studio   # opens Remotion Studio on the last build's events.json
 `--out <dir>` · `--size 1280x800` · `--fps 30` · `--headed`/`--headless`
 
 **build.mjs:** `--in <dir>` · `--out <file.mp4>` · `--no-transcode` ·
-env `FFMPEG_PATH` · env `SS_CHROMIUM_PATH` (Chrome for the renderer, for sandboxes/CI)
+env `FFMPEG_PATH` · env `SS_CHROMIUM_PATH` (override the auto-detected browser)
+
+**Other scripts:** `npm run open-out` (print/open the newest `out/*.mp4`) ·
+`npm run setup` (install deps; safe no-op if already installed).
+
+### Optional: auto-install on cloud sessions
+To make a fresh Claude Code **web** session install deps automatically, add a `SessionStart`
+hook to `.claude/settings.json`:
+```json
+{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "node scripts/setup.mjs" } ] } ] } }
+```
+(Left out of the repo by default since it auto-runs a command — opt in if you want it.)
 
 ## Customizing the look
 

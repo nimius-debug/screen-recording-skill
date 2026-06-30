@@ -13,6 +13,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync, renameSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve, isAbsolute } from 'node:path';
+import { resolveCaptureChromium, hasDisplay } from './lib/env.mjs';
 
 function parseArgs(argv) {
   const a = { mode: 'live', duration: 20, url: 'about:blank', steps: null,
@@ -41,6 +42,17 @@ const [width, height] = args.size.split('x').map(Number);
 // Live mode needs a headful window the user can interact with; script mode can run
 // headless (recordVideo still captures). Default follows the mode unless overridden.
 const headless = args.headless === null ? args.mode === 'script' : args.headless;
+
+// Live mode is pointless without a real screen to interact with (e.g. a cloud
+// sandbox). Fail fast with guidance instead of opening a window nobody can see.
+if (args.mode === 'live' && !headless && !hasDisplay()) {
+  console.error(
+    '[record] live mode needs a real screen, but no display was found.\n' +
+    '         Use --mode script (Claude drives the browser), or run locally /\n' +
+    '         via Claude Code Remote Control where you can interact with the window.',
+  );
+  process.exit(1);
+}
 const outDir = resolve(args.out);
 mkdirSync(outDir, { recursive: true });
 const videoDir = join(outDir, '.video');
@@ -143,9 +155,9 @@ async function runSteps(page, stepsArg, pos) {
   }
 }
 
-// Optional override for environments where Playwright's pinned Chromium build
-// isn't installed (e.g. CI/sandboxes with a preinstalled browser).
-const executablePath = process.env.SS_CHROMIUM_PATH || undefined;
+// Auto-detect Chromium: Playwright's own bundled build locally, or a preinstalled
+// browser in cloud sandboxes. SS_CHROMIUM_PATH overrides.
+const executablePath = resolveCaptureChromium();
 const browser = await chromium.launch({
   headless,
   executablePath,
