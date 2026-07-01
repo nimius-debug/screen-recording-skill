@@ -5,6 +5,8 @@ for a chosen duration and automatically edits it into a polished, *Screen Studio
 video — smooth **auto zoom-on-click**, a **synthetic glide cursor**, and a cinematic
 frame (gradient background, rounded corners, drop shadow).
 
+> How it works, component by component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 | Idle frame | Zoom-on-click |
 | --- | --- |
 | ![idle](examples/showcase/idle.png) | ![zoom on click](examples/showcase/zoom-on-click.png) |
